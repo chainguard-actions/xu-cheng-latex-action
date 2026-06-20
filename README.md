@@ -10,6 +10,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 |---------|-----|-----------------|
 | 3.3.0 | [`3.3.0`](https://github.com/chainguard-actions/xu-cheng-latex-action/tree/3.3.0) | [`e2f99d4`](https://github.com/xu-cheng/latex-action/commit/e2f99d4b3685b0da93f97e1b86ad8fab81105098) |
 | 4.0.0 | [`4.0.0`](https://github.com/chainguard-actions/xu-cheng-latex-action/tree/4.0.0) | [`2508097`](https://github.com/xu-cheng/latex-action/commit/25080975331dc4fc8e6f1af55788e00f84f51fff) |
+| 4.1.0 | [`4.1.0`](https://github.com/chainguard-actions/xu-cheng-latex-action/tree/4.1.0) | [`6549dc2`](https://github.com/xu-cheng/latex-action/commit/6549dc21effb2730855a1281407ecfcececc6c1b) |
 
 ## Privacy
 
