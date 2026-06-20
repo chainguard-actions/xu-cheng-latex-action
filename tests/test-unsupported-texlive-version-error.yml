@@ -1,0 +1,31 @@
+name: Test error when unsupported TeXLive version is specified
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install mock docker
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          printf '%s\n' '#!/usr/bin/env bash' 'echo "Mock docker called"' 'exit 0' > "$HOME/.local/bin/docker"
+          chmod +x "$HOME/.local/bin/docker"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Run action with unsupported TeXLive version (should fail)
+        id: action
+        uses: .
+        with:
+          root_file: pristine/xu-cheng--latex-action/4.0.0/test/test.tex
+          texlive_version: "2019"
+        continue-on-error: true
+      - name: Assert action failed due to unsupported TeXLive version
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when an unsupported TeXLive version is specified"
+            exit 1
+          fi
+          echo "PASS: action correctly failed with unsupported TeXLive version"
