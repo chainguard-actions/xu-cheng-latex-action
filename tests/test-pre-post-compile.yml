@@ -1,0 +1,37 @@
+name: Test pre_compile and post_compile hooks
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Check if running under act (skip compilation in act environment)
+        id: env-check
+        run: |
+          if [ "${ACT}" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Running under act — skipping LaTeX compilation (requires large Docker image)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Compile LaTeX with pre and post compile hooks
+        id: action
+        if: steps.env-check.outputs.skip != 'true'
+        uses: .
+        with:
+          root_file: tests/fixtures/minimal.tex
+          pre_compile: "echo 'pre-compile hook executed' > /tmp/pre_compile_marker.txt"
+          post_compile: "echo 'post-compile hook executed' > /tmp/post_compile_marker.txt"
+      - name: Assert PDF was generated with pre/post compile hooks
+        if: steps.env-check.outputs.skip != 'true'
+        run: |
+          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/minimal.pdf" ]; then
+            echo "FAIL: expected minimal.pdf to be generated"
+            exit 1
+          fi
+          echo "PASS: PDF was successfully generated with pre/post compile hooks"
+      - name: Skip notice when running under act
+        if: steps.env-check.outputs.skip == 'true'
+        run: |
+          echo "SKIP: Running under act — LaTeX compilation requires a large Docker image not available in this environment"

@@ -1,0 +1,37 @@
+name: Test extra_system_packages input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Check if running under act (skip compilation in act environment)
+        id: env-check
+        run: |
+          if [ "${ACT}" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Running under act — skipping LaTeX compilation (requires large Docker image)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Compile LaTeX document with extra system packages
+        id: action
+        if: steps.env-check.outputs.skip != 'true'
+        uses: .
+        with:
+          root_file: tests/fixtures/minimal.tex
+          extra_system_packages: curl
+      - name: Assert PDF was generated with extra system packages
+        if: steps.env-check.outputs.skip != 'true'
+        run: |
+          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/minimal.pdf" ]; then
+            echo "FAIL: expected minimal.pdf to be generated"
+            exit 1
+          fi
+          echo "PASS: PDF was successfully generated with extra_system_packages set"
+      - name: Skip notice when running under act
+        if: steps.env-check.outputs.skip == 'true'
+        run: |
+          echo "SKIP: Running under act — LaTeX compilation requires a large Docker image not available in this environment"
+          echo "INFO: This test covers the 'extra_system_packages' input"
