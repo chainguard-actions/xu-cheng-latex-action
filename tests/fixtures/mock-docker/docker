@@ -1,0 +1,97 @@
+#!/bin/sh
+# Mock docker script that simulates LaTeX compilation for act testing.
+# Intercepts "docker run" calls from action.sh and simulates compilation.
+# The action.sh passes env vars as "-e KEY" (not "-e KEY=VALUE"),
+# so values are inherited from the environment automatically.
+
+# If not a "run" subcommand, pass through
+if [ "$1" != "run" ]; then
+  exit 0
+fi
+
+echo "[mock-docker] Simulating LaTeX compilation"
+echo "[mock-docker] INPUT_ROOT_FILE=${INPUT_ROOT_FILE}"
+echo "[mock-docker] INPUT_WORKING_DIRECTORY=${INPUT_WORKING_DIRECTORY}"
+echo "[mock-docker] INPUT_WORK_IN_ROOT_FILE_DIR=${INPUT_WORK_IN_ROOT_FILE_DIR}"
+echo "[mock-docker] INPUT_CONTINUE_ON_ERROR=${INPUT_CONTINUE_ON_ERROR}"
+echo "[mock-docker] INPUT_COMPILER=${INPUT_COMPILER:-latexmk}"
+echo "[mock-docker] GITHUB_WORKSPACE=${GITHUB_WORKSPACE}"
+
+# Determine base directory for resolving relative paths
+BASE_DIR="${GITHUB_WORKSPACE}"
+if [ -n "${INPUT_WORKING_DIRECTORY}" ]; then
+  if [ -d "${INPUT_WORKING_DIRECTORY}" ]; then
+    BASE_DIR="${INPUT_WORKING_DIRECTORY}"
+  elif [ -d "${GITHUB_WORKSPACE}/${INPUT_WORKING_DIRECTORY}" ]; then
+    BASE_DIR="${GITHUB_WORKSPACE}/${INPUT_WORKING_DIRECTORY}"
+  fi
+fi
+echo "[mock-docker] BASE_DIR=${BASE_DIR}"
+
+# Run pre_compile if set
+if [ -n "${INPUT_PRE_COMPILE}" ]; then
+  echo "[mock-docker] Running pre_compile"
+  eval "${INPUT_PRE_COMPILE}"
+fi
+
+# Write root files to a temp file to avoid subshell issues
+TMPFILE="$(mktemp)"
+printf '%s\n' "${INPUT_ROOT_FILE}" > "${TMPFILE}"
+
+EXIT_CODE=0
+
+while IFS= read -r f; do
+  # Trim whitespace
+  f="$(printf '%s' "$f" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  # Skip empty lines
+  [ -z "$f" ] && continue
+
+  echo "[mock-docker] Processing file: $f"
+
+  # Resolve the actual file path
+  if [ -f "$f" ]; then
+    ACTUAL_FILE="$f"
+  elif [ -f "${BASE_DIR}/$f" ]; then
+    ACTUAL_FILE="${BASE_DIR}/$f"
+  elif [ -f "${GITHUB_WORKSPACE}/$f" ]; then
+    ACTUAL_FILE="${GITHUB_WORKSPACE}/$f"
+  else
+    # File not found - use best guess for output path
+    echo "[mock-docker] WARNING: source file not found: $f"
+    ACTUAL_FILE="${BASE_DIR}/$f"
+  fi
+
+  FILE_DIR="$(dirname "${ACTUAL_FILE}")"
+  FILE_BASE="$(basename "${ACTUAL_FILE}" .tex)"
+  OUTPUT_PDF="${FILE_DIR}/${FILE_BASE}.pdf"
+
+  echo "[mock-docker] Will create PDF: ${OUTPUT_PDF}"
+
+  # Check if this is a broken/error file
+  if printf '%s' "$f" | grep -qE "broken|error"; then
+    echo "[mock-docker] Simulating LaTeX error for $f"
+    if [ "${INPUT_CONTINUE_ON_ERROR}" = "true" ]; then
+      echo "[mock-docker] continue_on_error=true, continuing despite error"
+      EXIT_CODE=1
+    else
+      echo "[mock-docker] Compilation failed (no continue_on_error)"
+      rm -f "${TMPFILE}"
+      exit 1
+    fi
+  else
+    # Create a minimal valid PDF
+    mkdir -p "${FILE_DIR}"
+    printf '%%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n190\n%%%%EOF\n' > "${OUTPUT_PDF}"
+    echo "[mock-docker] Created PDF: ${OUTPUT_PDF}"
+  fi
+done < "${TMPFILE}"
+
+rm -f "${TMPFILE}"
+
+# Run post_compile if set
+if [ -n "${INPUT_POST_COMPILE}" ]; then
+  echo "[mock-docker] Running post_compile"
+  eval "${INPUT_POST_COMPILE}"
+fi
+
+exit ${EXIT_CODE}

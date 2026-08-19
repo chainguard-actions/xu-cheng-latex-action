@@ -6,57 +6,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Check if LaTeX compilation is feasible
-        id: env_check
+      - name: Set up mock docker
         run: |
-          # Skip if running under act (local runner) since TeX Live image is too large to pull
-          if [ "${ACT}" = "true" ]; then
-            echo "feasible=false" >> "$GITHUB_OUTPUT"
-            echo "Running under act - skipping LaTeX compilation (TeX Live image too large)"
-          elif docker info > /dev/null 2>&1; then
-            echo "feasible=true" >> "$GITHUB_OUTPUT"
-            echo "Docker available - will attempt LaTeX compilation"
-          else
-            echo "feasible=false" >> "$GITHUB_OUTPUT"
-            echo "Docker not available - skipping LaTeX compilation"
-          fi
-
-      - name: Download a sample font for testing
-        if: steps.env_check.outputs.feasible == 'true'
+          mkdir -p "$HOME/.local/bin"
+          cp "$GITHUB_WORKSPACE/tests/fixtures/mock-docker/docker" "$HOME/.local/bin/docker"
+          chmod +x "$HOME/.local/bin/docker"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Create a dummy font file for testing
         run: |
-          # Download a freely available TTF font to use as extra_fonts input
-          mkdir -p /tmp/extra-fonts
-          curl -fsSL -o /tmp/extra-fonts/DejaVuSans.ttf \
-            "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf" \
-            || wget -q -O /tmp/extra-fonts/DejaVuSans.ttf \
-            "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf" \
-            || echo "Font download skipped - will use placeholder"
-          ls -la /tmp/extra-fonts/ || true
-
-      - name: Compile LaTeX document with extra fonts
+          mkdir -p "$GITHUB_WORKSPACE/tests/fixtures/fonts"
+          # Create a minimal dummy .ttf file (just needs to exist as a file)
+          printf '\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
+            > "$GITHUB_WORKSPACE/tests/fixtures/fonts/dummy.ttf"
+          echo "Created dummy font file"
+          ls -la "$GITHUB_WORKSPACE/tests/fixtures/fonts/"
+      - name: Compile LaTeX with extra_fonts
         id: action
-        if: steps.env_check.outputs.feasible == 'true'
         uses: .
         with:
-          root_file: actions/hardened/xu-cheng--latex-action/3.3.0/tests/fixtures/minimal.tex
-          work_in_root_file_dir: "true"
-          extra_fonts: "/tmp/extra-fonts/*.ttf"
-
+          root_file: tests/fixtures/basic/main.tex
+          extra_fonts: tests/fixtures/fonts/dummy.ttf
       - name: Assert PDF was produced
-        if: steps.env_check.outputs.feasible == 'true'
         run: |
-          PDF="$GITHUB_WORKSPACE/actions/hardened/xu-cheng--latex-action/3.3.0/tests/fixtures/minimal.pdf"
-          echo "Checking for PDF at: $PDF"
-          if [ ! -f "$PDF" ]; then
-            echo "FAIL: expected PDF not found at $PDF"
-            ls -la "$GITHUB_WORKSPACE/actions/hardened/xu-cheng--latex-action/3.3.0/tests/fixtures/" || true
+          echo "Checking for output PDF..."
+          if [ ! -f "tests/fixtures/basic/main.pdf" ]; then
+            echo "FAIL: expected PDF file tests/fixtures/basic/main.pdf not found"
+            ls -la tests/fixtures/basic/ || true
             exit 1
           fi
-          echo "PASS: PDF was produced with extra_fonts"
-
-      - name: Skip notice
-        if: steps.env_check.outputs.feasible != 'true'
-        run: |
-          echo "SKIP: LaTeX compilation not feasible in this environment"
-          echo "PASS: test infrastructure verified (extra_fonts input covered)"
+          echo "PASS: PDF file was produced with extra_fonts set"

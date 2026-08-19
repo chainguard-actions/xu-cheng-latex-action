@@ -1,4 +1,4 @@
-name: Test basic LaTeX compilation
+name: Test texlive_version input
 on:
   workflow_dispatch:
 jobs:
@@ -12,12 +12,13 @@ jobs:
           cp "$GITHUB_WORKSPACE/tests/fixtures/mock-docker/docker" "$HOME/.local/bin/docker"
           chmod +x "$HOME/.local/bin/docker"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Compile basic LaTeX document
+      - name: Compile LaTeX document with specific TeX Live version
         id: action
         uses: .
         with:
           root_file: tests/fixtures/basic/main.tex
-      - name: Assert PDF was produced
+          texlive_version: "2024"
+      - name: Assert PDF was produced with TeX Live 2024
         run: |
           echo "Checking for output PDF..."
           if [ ! -f "tests/fixtures/basic/main.pdf" ]; then
@@ -25,4 +26,4 @@ jobs:
             ls -la tests/fixtures/basic/ || true
             exit 1
           fi
-          echo "PASS: PDF file was produced"
+          echo "PASS: PDF file was produced with TeX Live 2024"

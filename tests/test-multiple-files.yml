@@ -1,0 +1,42 @@
+name: Test compiling multiple root files
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up mock docker
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          cp "$GITHUB_WORKSPACE/tests/fixtures/mock-docker/docker" "$HOME/.local/bin/docker"
+          chmod +x "$HOME/.local/bin/docker"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Compile multiple LaTeX documents
+        id: action
+        uses: .
+        with:
+          root_file: |
+            tests/fixtures/multi/file1.tex
+            tests/fixtures/multi/file2.tex
+      - name: Assert both PDFs were produced
+        run: |
+          echo "Checking for output PDFs..."
+          FAIL=0
+          if [ ! -f "tests/fixtures/multi/file1.pdf" ]; then
+            echo "FAIL: expected PDF file tests/fixtures/multi/file1.pdf not found"
+            FAIL=1
+          else
+            echo "PASS: file1.pdf was produced"
+          fi
+          if [ ! -f "tests/fixtures/multi/file2.pdf" ]; then
+            echo "FAIL: expected PDF file tests/fixtures/multi/file2.pdf not found"
+            FAIL=1
+          else
+            echo "PASS: file2.pdf was produced"
+          fi
+          ls -la tests/fixtures/multi/ || true
+          if [ "$FAIL" -eq 1 ]; then
+            exit 1
+          fi
+          echo "PASS: both PDFs were produced"

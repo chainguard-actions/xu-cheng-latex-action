@@ -95,8 +95,8 @@ else
 fi
 
 if [[ -n "$INPUT_EXTRA_SYSTEM_PACKAGES" ]]; then
-  IFS=$' \t\n' read -ra pkgs <<< "$INPUT_EXTRA_SYSTEM_PACKAGES"
-  for pkg in "${pkgs[@]}"; do
+  IFS=$' \t\n'
+  for pkg in $INPUT_EXTRA_SYSTEM_PACKAGES; do
     info "Install $pkg by apk"
     apk --no-cache add "$pkg"
   done
@@ -134,7 +134,7 @@ fi
 
 if [[ -n "$INPUT_PRE_COMPILE" ]]; then
   info "Run pre compile commands"
-  bash -c "$INPUT_PRE_COMPILE"
+  eval "$INPUT_PRE_COMPILE"
 fi
 
 exit_code=0
@@ -172,7 +172,7 @@ done
 
 if [[ -n "$INPUT_POST_COMPILE" ]]; then
   info "Run post compile commands"
-  bash -c "$INPUT_POST_COMPILE"
+  eval "$INPUT_POST_COMPILE"
 fi
 
 exit "$exit_code"

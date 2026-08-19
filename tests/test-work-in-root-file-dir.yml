@@ -1,4 +1,4 @@
-name: Test basic LaTeX compilation
+name: Test work_in_root_file_dir option
 on:
   workflow_dispatch:
 jobs:
@@ -12,11 +12,12 @@ jobs:
           cp "$GITHUB_WORKSPACE/tests/fixtures/mock-docker/docker" "$HOME/.local/bin/docker"
           chmod +x "$HOME/.local/bin/docker"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Compile basic LaTeX document
+      - name: Compile LaTeX document with work_in_root_file_dir enabled
         id: action
         uses: .
         with:
           root_file: tests/fixtures/basic/main.tex
+          work_in_root_file_dir: "true"
       - name: Assert PDF was produced
         run: |
           echo "Checking for output PDF..."
@@ -25,4 +26,4 @@ jobs:
             ls -la tests/fixtures/basic/ || true
             exit 1
           fi
-          echo "PASS: PDF file was produced"
+          echo "PASS: PDF file was produced with work_in_root_file_dir=true"

@@ -6,44 +6,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Check if LaTeX compilation is feasible
-        id: env_check
+      - name: Set up mock docker
         run: |
-          # Skip if running under act (local runner) since TeX Live image is too large to pull
-          if [ "${ACT}" = "true" ]; then
-            echo "feasible=false" >> "$GITHUB_OUTPUT"
-            echo "Running under act - skipping LaTeX compilation (TeX Live image too large)"
-          elif docker info > /dev/null 2>&1; then
-            echo "feasible=true" >> "$GITHUB_OUTPUT"
-            echo "Docker available - will attempt LaTeX compilation"
-          else
-            echo "feasible=false" >> "$GITHUB_OUTPUT"
-            echo "Docker not available - skipping LaTeX compilation"
-          fi
-
-      - name: Compile LaTeX document using working_directory
+          mkdir -p "$HOME/.local/bin"
+          cp "$GITHUB_WORKSPACE/tests/fixtures/mock-docker/docker" "$HOME/.local/bin/docker"
+          chmod +x "$HOME/.local/bin/docker"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Compile LaTeX document with working_directory set
         id: action
-        if: steps.env_check.outputs.feasible == 'true'
         uses: .
         with:
-          root_file: minimal.tex
-          working_directory: actions/hardened/xu-cheng--latex-action/3.3.0/tests/fixtures
-
-      - name: Assert PDF was produced
-        if: steps.env_check.outputs.feasible == 'true'
+          root_file: main.tex
+          working_directory: tests/fixtures/basic
+      - name: Assert PDF was produced in working directory
         run: |
-          PDF="$GITHUB_WORKSPACE/actions/hardened/xu-cheng--latex-action/3.3.0/tests/fixtures/minimal.pdf"
-          echo "Checking for PDF at: $PDF"
-          if [ ! -f "$PDF" ]; then
-            echo "FAIL: expected PDF not found at $PDF"
-            ls -la "$GITHUB_WORKSPACE/actions/hardened/xu-cheng--latex-action/3.3.0/tests/fixtures/" || true
+          echo "Checking for output PDF in working directory..."
+          if [ ! -f "tests/fixtures/basic/main.pdf" ]; then
+            echo "FAIL: expected PDF file tests/fixtures/basic/main.pdf not found"
+            ls -la tests/fixtures/basic/ || true
             exit 1
           fi
-          echo "PASS: PDF was produced using working_directory"
-
-      - name: Skip notice
-        if: steps.env_check.outputs.feasible != 'true'
-        run: |
-          echo "SKIP: LaTeX compilation not feasible in this environment"
-          echo "PASS: test infrastructure verified (working_directory input covered)"
+          echo "PASS: PDF file was produced in working directory"
