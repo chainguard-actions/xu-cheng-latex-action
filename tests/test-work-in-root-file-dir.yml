@@ -1,4 +1,4 @@
-name: Test Debian OS base image
+name: Test work_in_root_file_dir option
 on:
   workflow_dispatch:
 jobs:
@@ -35,18 +35,18 @@ jobs:
           MOCKEOF
           chmod +x /tmp/mock-bin/docker
           echo "/tmp/mock-bin" >> "$GITHUB_PATH"
-      - name: Compile with Debian-based TeXLive image
+      - name: Compile with work_in_root_file_dir enabled
         id: action
         uses: .
         with:
           root_file: tests/fixtures/simple.tex
-          os: debian
-      - name: Assert PDF was created
+          work_in_root_file_dir: "true"
+      - name: Assert PDF was created in the same directory as the source
         run: |
           echo "Checking for PDF at: $GITHUB_WORKSPACE/tests/fixtures/simple.pdf"
           ls -la "$GITHUB_WORKSPACE/tests/fixtures/" || true
           if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/simple.pdf" ]; then
-            echo "FAIL: expected simple.pdf to be created using Debian image"
+            echo "FAIL: expected simple.pdf to be created in tests/fixtures/"
             exit 1
           fi
-          echo "PASS: simple.pdf was created using Debian-based TeXLive image"
+          echo "PASS: simple.pdf was created in the root file's directory"

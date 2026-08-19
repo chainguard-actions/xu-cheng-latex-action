@@ -1,0 +1,26 @@
+name: Test conflicting texlive_version and docker_image inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run action with both texlive_version and docker_image (should fail)
+        id: action
+        uses: .
+        with:
+          root_file: tests/fixtures/simple.tex
+          texlive_version: "2024"
+          docker_image: ghcr.io/xu-cheng/texlive-alpine:latest
+        continue-on-error: true
+      - name: Assert action failed
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when both texlive_version and docker_image are set, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when conflicting inputs were provided"

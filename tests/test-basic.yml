@@ -1,4 +1,4 @@
-name: Test Debian OS base image
+name: Test basic LaTeX compilation
 on:
   workflow_dispatch:
 jobs:
@@ -35,18 +35,17 @@ jobs:
           MOCKEOF
           chmod +x /tmp/mock-bin/docker
           echo "/tmp/mock-bin" >> "$GITHUB_PATH"
-      - name: Compile with Debian-based TeXLive image
+      - name: Compile simple LaTeX document
         id: action
         uses: .
         with:
           root_file: tests/fixtures/simple.tex
-          os: debian
       - name: Assert PDF was created
         run: |
           echo "Checking for PDF at: $GITHUB_WORKSPACE/tests/fixtures/simple.pdf"
           ls -la "$GITHUB_WORKSPACE/tests/fixtures/" || true
           if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/simple.pdf" ]; then
-            echo "FAIL: expected simple.pdf to be created using Debian image"
+            echo "FAIL: expected simple.pdf to be created"
             exit 1
           fi
-          echo "PASS: simple.pdf was created using Debian-based TeXLive image"
+          echo "PASS: simple.pdf was created"

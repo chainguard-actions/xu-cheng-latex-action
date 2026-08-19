@@ -6,32 +6,62 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Check if running under act (skip compilation in act environment)
-        id: env-check
+      - name: Set up mock docker
         run: |
-          if [ "${ACT}" = "true" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Running under act — skipping LaTeX compilation (requires large Docker image)"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Compile LaTeX with pre and post compile hooks
+          mkdir -p /tmp/mock-bin
+          cat > /tmp/mock-bin/docker <<'MOCKEOF'
+          #!/bin/bash
+          # Mock docker: INPUT_* vars are already in environment via -e flags
+          if [ -n "$INPUT_PRE_COMPILE" ]; then eval "$INPUT_PRE_COMPILE"; fi
+          readarray -t root_files <<< "$INPUT_ROOT_FILE"
+          exit_code=0
+          for f in "${root_files[@]}"; do
+            [ -z "$f" ] && continue
+            if [ "$INPUT_WORK_IN_ROOT_FILE_DIR" = "true" ]; then
+              pdf_path="$(dirname "$f")/$(basename "${f%.tex}").pdf"
+            else
+              pdf_path="${f%.tex}.pdf"
+            fi
+            if [[ "$f" == *"broken"* ]]; then
+              echo "::error :: LaTeX compilation failed for $f"
+              if [ "$INPUT_CONTINUE_ON_ERROR" = "true" ]; then exit_code=1; else exit 1; fi
+            else
+              echo "Simulated PDF: $f -> $pdf_path"
+              touch "$pdf_path"
+            fi
+          done
+          if [ -n "$INPUT_POST_COMPILE" ]; then eval "$INPUT_POST_COMPILE"; fi
+          exit $exit_code
+          MOCKEOF
+          chmod +x /tmp/mock-bin/docker
+          echo "/tmp/mock-bin" >> "$GITHUB_PATH"
+      - name: Compile with pre and post compile hooks
         id: action
-        if: steps.env-check.outputs.skip != 'true'
         uses: .
         with:
-          root_file: tests/fixtures/minimal.tex
-          pre_compile: "echo 'pre-compile hook executed' > /tmp/pre_compile_marker.txt"
-          post_compile: "echo 'post-compile hook executed' > /tmp/post_compile_marker.txt"
-      - name: Assert PDF was generated with pre/post compile hooks
-        if: steps.env-check.outputs.skip != 'true'
+          root_file: tests/fixtures/simple.tex
+          pre_compile: "echo 'PRE_COMPILE_MARKER' > $GITHUB_WORKSPACE/tests/fixtures/pre_compile_ran.txt"
+          post_compile: "echo 'POST_COMPILE_MARKER' > $GITHUB_WORKSPACE/tests/fixtures/post_compile_ran.txt"
+      - name: Assert PDF was created
         run: |
-          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/minimal.pdf" ]; then
-            echo "FAIL: expected minimal.pdf to be generated"
+          echo "Checking for PDF at: $GITHUB_WORKSPACE/tests/fixtures/simple.pdf"
+          ls -la "$GITHUB_WORKSPACE/tests/fixtures/" || true
+          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/simple.pdf" ]; then
+            echo "FAIL: expected simple.pdf to be created"
             exit 1
           fi
-          echo "PASS: PDF was successfully generated with pre/post compile hooks"
-      - name: Skip notice when running under act
-        if: steps.env-check.outputs.skip == 'true'
+          echo "PASS: simple.pdf was created with pre/post compile hooks"
+      - name: Assert pre_compile hook ran
         run: |
-          echo "SKIP: Running under act — LaTeX compilation requires a large Docker image not available in this environment"
+          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/pre_compile_ran.txt" ]; then
+            echo "FAIL: pre_compile hook did not run (marker file not found)"
+            exit 1
+          fi
+          echo "PASS: pre_compile hook ran"
+      - name: Assert post_compile hook ran
+        run: |
+          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/post_compile_ran.txt" ]; then
+            echo "FAIL: post_compile hook did not run (marker file not found)"
+            exit 1
+          fi
+          echo "PASS: post_compile hook ran"

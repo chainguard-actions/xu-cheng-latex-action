@@ -6,32 +6,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Check if running under act (skip compilation in act environment)
-        id: env-check
+      - name: Create a fake font file for testing
         run: |
-          if [ "${ACT}" = "true" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Running under act — skipping LaTeX compilation (requires large Docker image)"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Compile LaTeX document with extra fonts
-        id: action
-        if: steps.env-check.outputs.skip != 'true'
-        uses: .
-        with:
-          root_file: tests/fixtures/minimal.tex
-          extra_fonts: tests/fixtures/fonts/*.ttf
-      - name: Assert PDF was generated with extra fonts
-        if: steps.env-check.outputs.skip != 'true'
+          mkdir -p "$GITHUB_WORKSPACE/tests/fixtures/fonts"
+          echo "fake font data" > "$GITHUB_WORKSPACE/tests/fixtures/fonts/FakeFont.ttf"
+      - name: Set up mock docker
         run: |
-          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/minimal.pdf" ]; then
-            echo "FAIL: expected minimal.pdf to be generated"
+          mkdir -p /tmp/mock-bin
+          cat > /tmp/mock-bin/docker <<'MOCKEOF'
+          #!/bin/bash
+          # Mock docker: INPUT_* vars are already in environment via -e flags
+          # Verify extra_fonts is passed through
+          if [ -z "$INPUT_EXTRA_FONTS" ]; then
+            echo "::error :: INPUT_EXTRA_FONTS is not set"
             exit 1
           fi
-          echo "PASS: PDF was successfully generated with extra_fonts set"
-      - name: Skip notice when running under act
-        if: steps.env-check.outputs.skip == 'true'
+          echo "EXTRA_FONTS_VALUE=$INPUT_EXTRA_FONTS" >> "$GITHUB_ENV"
+          # Simulate compilation
+          readarray -t root_files <<< "$INPUT_ROOT_FILE"
+          for f in "${root_files[@]}"; do
+            [ -z "$f" ] && continue
+            pdf_path="${f%.tex}.pdf"
+            echo "Simulated PDF: $f -> $pdf_path"
+            touch "$pdf_path"
+          done
+          exit 0
+          MOCKEOF
+          chmod +x /tmp/mock-bin/docker
+          echo "/tmp/mock-bin" >> "$GITHUB_PATH"
+      - name: Compile with extra_fonts
+        id: action
+        uses: .
+        with:
+          root_file: tests/fixtures/simple.tex
+          extra_fonts: "tests/fixtures/fonts/FakeFont.ttf"
+      - name: Assert extra_fonts was passed to docker
         run: |
-          echo "SKIP: Running under act — LaTeX compilation requires a large Docker image not available in this environment"
-          echo "INFO: This test covers the 'extra_fonts' input"
+          echo "actual: $EXTRA_FONTS_VALUE"
+          if [ "$EXTRA_FONTS_VALUE" != "tests/fixtures/fonts/FakeFont.ttf" ]; then
+            echo "FAIL: expected extra_fonts to be 'tests/fixtures/fonts/FakeFont.ttf', got '$EXTRA_FONTS_VALUE'"
+            exit 1
+          fi
+          echo "PASS: extra_fonts was correctly passed to docker"
+      - name: Assert PDF was created
+        run: |
+          echo "Checking for PDF at: $GITHUB_WORKSPACE/tests/fixtures/simple.pdf"
+          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/simple.pdf" ]; then
+            echo "FAIL: expected simple.pdf to be created"
+            exit 1
+          fi
+          echo "PASS: simple.pdf was created"
