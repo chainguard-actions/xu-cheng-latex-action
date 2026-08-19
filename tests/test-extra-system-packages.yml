@@ -6,27 +6,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Install mock docker
+
+      - name: Install fake docker
         run: |
-          mkdir -p "$HOME/.local/bin"
-          printf '%s\n' '#!/usr/bin/env bash' \
-            'echo "INPUT_EXTRA_SYSTEM_PACKAGES=$INPUT_EXTRA_SYSTEM_PACKAGES"' \
-            'exit 0' > "$HOME/.local/bin/docker"
-          chmod +x "$HOME/.local/bin/docker"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Compile with extra system packages
+          mkdir -p /tmp/fake-bin
+          cp "$GITHUB_WORKSPACE/hardened/tests/fixtures/fake-docker.sh" /tmp/fake-bin/docker
+          chmod +x /tmp/fake-bin/docker
+          echo "/tmp/fake-bin" >> "$GITHUB_PATH"
+
+      - name: Compile LaTeX document with extra system packages
         id: action
         uses: .
         with:
-          root_file: main.tex
-          extra_system_packages: "inkscape ghostscript"
+          root_file: test.tex
+          working_directory: hardened/tests/fixtures
+          extra_system_packages: "curl wget"
+
       - name: Assert action succeeded
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
           if [ "$OUTCOME" != "success" ]; then
-            echo "FAIL: expected action to succeed"
+            echo "FAIL: expected action to succeed with extra_system_packages"
             exit 1
           fi
-          echo "PASS: action completed successfully with extra system packages"
+          echo "PASS: action succeeded with extra_system_packages input"
+
+      - name: Assert PDF was produced
+        run: |
+          echo "Checking for PDF output..."
+          if [ ! -f "hardened/tests/fixtures/test.pdf" ]; then
+            echo "FAIL: expected hardened/tests/fixtures/test.pdf to be produced"
+            exit 1
+          fi
+          echo "PASS: PDF was produced with extra_system_packages input"

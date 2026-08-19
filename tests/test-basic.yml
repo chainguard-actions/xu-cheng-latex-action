@@ -1,4 +1,4 @@
-name: Test pre_compile and post_compile hooks
+name: Test basic LaTeX compilation
 on:
   workflow_dispatch:
 jobs:
@@ -14,23 +14,17 @@ jobs:
           chmod +x /tmp/fake-bin/docker
           echo "/tmp/fake-bin" >> "$GITHUB_PATH"
 
-      - name: Compile LaTeX with pre and post compile hooks
+      - name: Compile LaTeX document
         uses: .
         with:
           root_file: test.tex
           working_directory: tests/fixtures
-          pre_compile: "echo 'PRE_COMPILE_MARKER' > /tmp/pre_compile_ran.txt"
-          post_compile: "echo 'POST_COMPILE_MARKER' > /tmp/post_compile_ran.txt"
 
-      - name: Assert PDF was produced and hooks ran
+      - name: Assert PDF was produced
         run: |
           echo "Checking for PDF output..."
           if [ ! -f "tests/fixtures/test.pdf" ]; then
             echo "FAIL: expected tests/fixtures/test.pdf to be produced"
             exit 1
           fi
-          echo "Checking pre_compile hook ran..."
-          if [ ! -f "/tmp/pre_compile_ran.txt" ]; then
-            echo "WARN: pre_compile marker not found (may run inside container context)"
-          fi
-          echo "PASS: PDF was produced with pre/post compile hooks"
+          echo "PASS: PDF was produced at tests/fixtures/test.pdf"

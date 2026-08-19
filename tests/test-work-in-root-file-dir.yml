@@ -1,4 +1,4 @@
-name: Test compilation with Debian OS
+name: Test work_in_root_file_dir option
 on:
   workflow_dispatch:
 jobs:
@@ -14,18 +14,17 @@ jobs:
           chmod +x /tmp/fake-bin/docker
           echo "/tmp/fake-bin" >> "$GITHUB_PATH"
 
-      - name: Compile LaTeX document using Debian image
+      - name: Compile LaTeX document changing to root file directory
         uses: .
         with:
-          root_file: test.tex
-          working_directory: tests/fixtures
-          os: debian
+          root_file: tests/fixtures/test.tex
+          work_in_root_file_dir: "true"
 
-      - name: Assert PDF was produced
+      - name: Assert PDF was produced in the same directory as the source
         run: |
           echo "Checking for PDF output..."
           if [ ! -f "tests/fixtures/test.pdf" ]; then
             echo "FAIL: expected tests/fixtures/test.pdf to be produced"
             exit 1
           fi
-          echo "PASS: PDF was produced using Debian image"
+          echo "PASS: PDF was produced in root file directory"

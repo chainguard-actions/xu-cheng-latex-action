@@ -1,4 +1,4 @@
-name: Test compilation with Debian OS
+name: Test math LaTeX document compilation
 on:
   workflow_dispatch:
 jobs:
@@ -14,18 +14,17 @@ jobs:
           chmod +x /tmp/fake-bin/docker
           echo "/tmp/fake-bin" >> "$GITHUB_PATH"
 
-      - name: Compile LaTeX document using Debian image
+      - name: Compile math LaTeX document
         uses: .
         with:
-          root_file: test.tex
+          root_file: math.tex
           working_directory: tests/fixtures
-          os: debian
 
       - name: Assert PDF was produced
         run: |
           echo "Checking for PDF output..."
-          if [ ! -f "tests/fixtures/test.pdf" ]; then
-            echo "FAIL: expected tests/fixtures/test.pdf to be produced"
+          if [ ! -f "tests/fixtures/math.pdf" ]; then
+            echo "FAIL: expected tests/fixtures/math.pdf to be produced"
             exit 1
           fi
-          echo "PASS: PDF was produced using Debian image"
+          echo "PASS: Math PDF was produced successfully"

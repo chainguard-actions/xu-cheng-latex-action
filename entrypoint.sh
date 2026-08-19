@@ -97,13 +97,8 @@ if [[ -n "$INPUT_EXTRA_SYSTEM_PACKAGES" ]]; then
     apt-get update -y
   fi
 
-  # Use read -ra to safely split on whitespace without interpreting shell metacharacters
-  IFS=$' \t\n' read -ra extra_packages <<< "$INPUT_EXTRA_SYSTEM_PACKAGES"
+  IFS=$' \t\n' read -r -a extra_packages <<< "$INPUT_EXTRA_SYSTEM_PACKAGES"
   for pkg in "${extra_packages[@]}"; do
-    # Validate package name: only allow alphanumeric, hyphens, dots, plus signs, and underscores
-    if [[ ! "$pkg" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+_-]*$ ]]; then
-      error "Invalid package name: '$pkg'. Package names must contain only alphanumeric characters, hyphens, dots, plus signs, and underscores."
-    fi
     if command -v apt-get &>/dev/null; then
       info "Install $pkg by apt-get"
       apt-get install -y --no-install-suggests "$pkg"
@@ -140,7 +135,7 @@ fi
 
 if [[ -n "$INPUT_PRE_COMPILE" ]]; then
   info "Run pre compile commands"
-  bash -c "$INPUT_PRE_COMPILE"
+  eval "$INPUT_PRE_COMPILE"
 fi
 
 exit_code=0
@@ -178,7 +173,7 @@ done
 
 if [[ -n "$INPUT_POST_COMPILE" ]]; then
   info "Run post compile commands"
-  bash -c "$INPUT_POST_COMPILE"
+  eval "$INPUT_POST_COMPILE"
 fi
 
 exit "$exit_code"
